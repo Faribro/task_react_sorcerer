@@ -1,139 +1,137 @@
-import React, { useState, useEffect } from "react";
-import { Editor, EditorState, RichUtils } from "draft-js";
+import React, { useRef, useState, useEffect } from "react";
+import {
+  Editor,
+  EditorState,
+  RichUtils,
+  getDefaultKeyBinding,
+  convertToRaw,
+  convertFromRaw,
+} from "draft-js";
 import { makeStyles } from "@material-ui/core/styles";
-import Button from "@material-ui/core/Button";
-import SaveIcon from "@material-ui/icons/Save";
-import Toolbar from "@material-ui/core/Toolbar";
-import Typography from "@material-ui/core/Typography";
 import TextField from "@material-ui/core/TextField";
-import Paper from "@material-ui/core/Paper";
-
-import "draft-js/dist/Draft.css";
+import Button from "@material-ui/core/Button";
 
 const useStyles = makeStyles((theme) => ({
   root: {
-    padding: theme.spacing(3),
-  },
-  toolbar: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: theme.spacing(2),
-  },
-  editor: {
-    minHeight: 200,
-    border: `1px solid ${theme.palette.divider}`,
-    padding: theme.spacing(1),
+    "& .MuiTextField-root": {
+      margin: theme.spacing(1),
+      width: "100%",
+    },
   },
   button: {
-    margin: theme.spacing(0.5),
+    margin: theme.spacing(1),
+  },
+  editor: {
+    border: "1px solid #ccc",
+    minHeight: "6em",
+    padding: "1em",
   },
 }));
 
-const DraftEditor = () => {
+function TextEditor() {
+  const editorRef = useRef(null);
   const classes = useStyles();
-
-  const [editorState, setEditorState] = useState(() =>
-    EditorState.createEmpty()
-  );
+  const [editorState, setEditorState] = useState(() => {
+    const savedData = localStorage.getItem("draftState");
+    if (savedData) {
+      return EditorState.createWithContent(
+        convertFromRaw(JSON.parse(savedData))
+      );
+    } else {
+      return EditorState.createEmpty();
+    }
+  });
 
   useEffect(() => {
-    const savedContent = localStorage.getItem("editorContent");
-    if (savedContent) {
-      setEditorState(EditorState.createWithContent(JSON.parse(savedContent)));
-    }
-  }, []);
-
-  const handleEditorChange = (newEditorState) => {
-    setEditorState(newEditorState);
-  };
-
-  const handleSave = () => {
     localStorage.setItem(
-      "editorContent",
-      JSON.stringify(editorState.getCurrentContent())
+      "draftState",
+      JSON.stringify(convertToRaw(editorState.getCurrentContent()))
     );
-  };
+  }, [editorState]);
 
-  const handleKeyCommand = (command, editorState) => {
+  function handleKeyCommand(command, newState) {
     const newEditorState = RichUtils.handleKeyCommand(editorState, command);
     if (newEditorState) {
-      handleEditorChange(newEditorState);
+      setEditorState(newEditorState);
       return "handled";
     }
     return "not-handled";
-  };
+  }
 
-  const handleHeader = () => {
-    const selection = editorState.getSelection();
-    const contentState = editorState.getCurrentContent();
-    const currentBlock = contentState.getBlockForKey(selection.getStartKey());
-    const text = currentBlock.getText();
+  function handleHeader() {
+    setEditorState(RichUtils.toggleBlockType(editorState, "header-one"));
+  }
 
-    const blockType = text.startsWith("# ") ? "unstyled" : "header-one";
+  function handleBold() {
+    setEditorState(RichUtils.toggleInlineStyle(editorState, "BOLD"));
+  }
 
-    const newContentState = RichUtils.toggleBlockType(contentState, blockType);
-    handleEditorChange(EditorState.push(editorState, newContentState));
-  };
+  function handleRedLine() {
+    setEditorState(RichUtils.toggleInlineStyle(editorState, "REDLINE"));
+  }
 
-  const handleBold = () => {
-    handleEditorChange(RichUtils.toggleInlineStyle(editorState, "BOLD"));
-  };
+  function handleUnderline() {
+    setEditorState(RichUtils.toggleInlineStyle(editorState, "UNDERLINE"));
+  }
 
-  const handleStrikethrough = () => {
-    handleEditorChange(
-      RichUtils.toggleInlineStyle(editorState, "STRIKETHROUGH")
+  function handleEditorChange(newState) {
+    setEditorState(newState);
+  }
+
+  function handleSave() {
+    localStorage.setItem(
+      "draftState",
+      JSON.stringify(convertToRaw(editorState.getCurrentContent()))
     );
-  };
+  }
 
-  const handleUnderline = () => {
-    handleEditorChange(RichUtils.toggleInlineStyle(editorState, "UNDERLINE"));
-  };
+  function keyBindingFn(event) {
+    if (
+      event.keyCode === 83 /* `S` key */ &&
+      (navigator.platform.match("Mac") ? event.metaKey : event.ctrlKey)
+    ) {
+      return "save";
+    }
+    return getDefaultKeyBinding(event);
+  }
 
   return (
-    <Paper className={classes.root}>
-      <Typography variant="h4" gutterBottom>
-        Editor
-      </Typography>
-      <Toolbar className={classes.toolbar}>
-        <div>
-          <Button
-            variant="contained"
-            color="primary"
-            className={classes.button}
-            onClick={handleHeader}
-          >
-            #
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            className={classes.button}
-            onClick={handleUnderline}
-          >
-            U
-          </Button>
-        </div>
-        <div>
-          <Button
-            variant="contained"
-            color="secondary"
-            className={classes.button}
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-          >
-            Save
-          </Button>
-        </div>
-      </Toolbar>
-      <Editor
-        editorState={editorState}
-        onChange={handleEditorChange}
-        handleKeyCommand={handleKeyCommand}
-        placeholder="Write something here..."
-        className={classes.editor}
-      />
-    </Paper>
-  );
-};
-
-export default DraftEditor;
+    <div className={classes.root}>
+      <TextField label="Title" variant="outlined" />
+      <Button
+        className={classes.button}
+        variant="contained"
+        color="primary"
+        onClick={handleHeader}
+      >
+        Header
+      </Button>
+      <Button
+        className={classes.button}
+        variant="contained"
+        color="primary"
+        onClick={handleBold}
+      >
+        Bold
+      </Button>
+      <Button
+        className={classes.button}
+        variant="contained"
+        color="primary"
+        onClick={handleRedLine}
+      >
+        Red Line
+      </Button>
+      <Button
+        className={classes.button}
+        variant="contained"
+        color="primary"
+        onClick={handleUnderline}
+      >
+        Underline
+      </Button>
+      <div className={classes.editor} onClick={() => editorRef.current.focus()}>
+        <Editor
+          editorState={editorState}
+          handleKeyCommand={handleKeyCommand}
+          keyBinding
