@@ -134,4 +134,29 @@ function TextEditor() {
         <Editor
           editorState={editorState}
           handleKeyCommand={handleKeyCommand}
-          keyBinding
+          onChange={handleEditorChange}
+          keyBindingFn={keyBindingFn}
+          handleBeforeInput={(chars) => {
+            if (chars === "s" && (navigator.platform.match("Mac") ? event.metaKey : event.ctrlKey)) {
+              handleSave();
+              return "handled";
+            }
+            return "not-handled";
+          }
+          }
+          ref={editorRef}
+        />
+      </div>
+      <Button
+        className={classes.button}
+        variant="contained"
+        color="primary"
+        onClick={handleSave}
+      >
+        Save
+      </Button>
+    </div>
+  );
+}
+
+export default TextEditor;
